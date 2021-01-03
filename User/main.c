@@ -11,8 +11,8 @@
 #include "./speaker/speaker.h"
 #include "./bluetooth/bluetooth.h"
 
-#define  Temp_limit    23
-#define  Light_limit   200
+#define  Temp_limit    30
+#define  Light_limit   60
 #define  Smog_limit    1.8
 
 uint8_t Receive[20];
@@ -60,7 +60,9 @@ int main(void)
 		TempHumi_Pre = TempHumi_Now;
 		if(ERROR == Temp_GetValue(&TempHumi_Now))//采集温湿度值
 		{
-			Debug("采集温湿度失败");
+			//Debug("采集温湿度失败");
+			TempHumi_Now = TempHumi_Pre; //若温湿度数据采集错误,跳过此次采集
+			
 		}
 		printf("湿度:%d%%\r\n",TempHumi_Now.Humi_Integer);
 		printf("温度:%d.%d\r\n",TempHumi_Now.Temp_Integer,TempHumi_Now.Temp_Decimal);		
@@ -73,9 +75,10 @@ int main(void)
 		
 		/*         控制风扇           */
 		if( (TempHumi_Pre.Temp_Integer < Temp_limit)&&(TempHumi_Now.Temp_Integer >= Temp_limit) )  //如果温度第一次超标,开风扇
-		{	
-			Speaker_Play(6);  //语音 温度警报
-			FAN_ON;	
+		{							
+			Speaker_Play(6);  //语音 温度警报	
+			Delays_SysTick(4);
+			FAN_ON;
 		}
 		else if( (TempHumi_Pre.Temp_Integer >= Temp_limit)&&(TempHumi_Now.Temp_Integer < Temp_limit) )  //如果温度第一次不超标,关风扇
 		{
@@ -84,7 +87,7 @@ int main(void)
 		
 		/*           控制灯           */
 		if( (light_value_pre>Light_limit)&&(light_value_now<=Light_limit) )       //如果光照值第一次过低,开灯
-		{	
+		{
 			Speaker_Play(7);  //语音 光照警报
 			LED_WHITE;
 		}
@@ -99,13 +102,12 @@ int main(void)
 			Speaker_Play(8);  //语音 烟雾警报
 		}
 		
+		Delays_SysTick(3);
 		
 		Bluetooth_Control();  //处理蓝牙发送来的数据
 		
 		Bluetooth_Send(TempHumi_Now,somg_value_now,light_value_now); //发送数据给蓝牙
-		  
 		
-		Delays_SysTick(3);
 	}
 }
 
@@ -149,6 +151,7 @@ void Bluetooth_Control(void)
 		if(Bluetooth_Flag == 1) //将Bluetooth发送来的数据发给Debug
 		{
 			Debug_SendString((char*)Receive);
+			printf("%s\n", Receive);
 		  while((USART_GetFlagStatus(DEBUG_USART,USART_FLAG_TC) == RESET));
 			 
 			if( NULL != strstr((char*)Receive,"led0") )  //如果接收到关灯指令
@@ -194,7 +197,7 @@ void Bluetooth_Send(TempHumi_Inform TempHumi,float Somg,uint16_t Light)
 {
 	char SendData[50];
 	
-	sprintf(SendData,"temp %2d.%2d humi %2d somg %2.2f light %d",TempHumi.Temp_Integer,TempHumi.Temp_Decimal,TempHumi.Humi_Integer,Somg,Light);
+	sprintf(SendData,"temp %2d.%d humi %2d somg %2.2f light %d",TempHumi.Temp_Integer,TempHumi.Temp_Decimal,TempHumi.Humi_Integer,Somg,Light);
 	Bluetooth_SendString(SendData);
 }
 

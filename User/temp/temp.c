@@ -25,15 +25,32 @@ void Temp_GPIO_Config(void)
 uint8_t Temp_ReadByte(void)
 {
 	uint8_t i,data=0;
-	
+	uint16_t TimeOut;
 	for(i=0;i<8;i++)
 	{		
-		while(Bit_SET != TEMP_IN);  //等DHT11拉高
+//		while(Bit_SET != TEMP_IN);  //等DHT11拉高
+		TimeOut=0xFFFF;
+		while(TimeOut--)//等DHT11拉高
+		{
+			if(Bit_SET == TEMP_IN)
+				break;
+		}
+		if(0 == TimeOut) return ERROR;
+		
 		Delayus_SysTick(40);
 		data=data<<1;
-		data|=TEMP_IN;		
-		while(Bit_RESET != TEMP_IN);//等DHT11拉低
+		data|=TEMP_IN;	
+		
+//		while(Bit_RESET != TEMP_IN);//等DHT11拉低
+		TimeOut=0xFFFF;
+		while(TimeOut--)//等DHT11拉低
+		{
+			if(Bit_RESET == TEMP_IN)
+				break;
+		}
+		if(0 == TimeOut) return ERROR;
 	}
+	
 	
 	return data;
 }
@@ -88,7 +105,8 @@ ErrorStatus Temp_GetValue(TempHumi_Inform* TempHumi)
 	TEMP_OUT_HIGH;
 	if(TempHumi->Verification != TempHumi->Humi_Integer+TempHumi->Humi_Decimal+TempHumi->Temp_Integer+TempHumi->Temp_Decimal)
 	{
-		Debug("校验和不对\r\n");		
+		//Debug("校验和不对\r\n");	
+		return ERROR;		
 	}	
 	
 	return SUCCESS;
